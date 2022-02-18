@@ -58,7 +58,15 @@ def maxx(x,y,z):
   elif (z>x) and (z>y):
       return z
   
-   
+def maxi_pitch(a,b,c,d):
+    if(a>b) and (a>c) and (a>d):
+        return a
+    elif (b>a) and (b>c) and (b>d):
+        return b
+    elif (c>a)and (c>b) and (c>d):
+        return c
+    elif (d>a) and (d>b) and (d>c):
+        return d  
    
 def get_iou(boxA, boxB):
     	# determine the (x, y)-coordinates of the intersection rectangle
@@ -143,18 +151,19 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     
     prev=0
     prev0=0
-    
+    check=0
+    gap=0
     
     with open('/content/mycsv.csv','w',newline='') as cfile:
          thewriter=csv.writer(cfile)
          thewriter.writerow(['ballcount','pitch'])
          
     blcnt=1
-    with open('/content/hit.csv','w',newline='') as cfile:
-        thewriterr=csv.writer(cfile)
-        thewriterr.writerow(['ballcount','hit/miss'])
+    # with open('/content/hit.csv','w',newline='') as cfile:
+    #     thewriterr=csv.writer(cfile)
+    #     thewriterr.writerow(['ballcount','hit/miss'])
 
-    # df= pd.DataFrame(columns=['ball count', 'hit/miss'])     
+    df= pd.DataFrame(columns=['ball count', 'hit/miss'])     
     # df.loc[df.index.max()+1] = [blcnt, 'lower' ] 
     # df.to_csv('/content/hit.csv',index=False)  
       
@@ -241,6 +250,9 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                     x,y,w,h = cv2.boundingRect(c)
                     idx=1
                     cv2.rectangle(im0, (x, y), (x + w, y + h), (0, 255,0), 2)
+                    cv2.rectangle(im0, (x+int(w/2)-30, y), (x+int(w/2)+30 , y +h), (0, 255,255), -1)
+
+                    # cv2.rectangle(im0, (x, y), (x + w, y + h), (0, 255,0), 2)
                     
                     cv2.rectangle(im0, (x, y), (x + w, y + int(h*0.1)), (255, 255,0), 2)#yorker
                     york=[x,y,x+w,y + int(h*0.1)]
@@ -303,7 +315,12 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                             cv2.rectangle(im0,(l,t+int((b-t)*0.3)),(r,b-int((b-t)*0.3)),(0.10,255),2) #mid
                             cv2.rectangle(im0,(l,t+int((b-t)*0.7)),(r,b),(0.10,255),2)  # lower
                         
-                    
+                            
+                             # # r-l - width of the box 
+                            cv2.rectangle(im0,(l,t),(r-int((r-l)*0.8),b),(0.10,255),3) 
+                            cv2.rectangle(im0,(l+int((r-l)*0.2),t),(r-int((r-l)*0.2),b),(0.10,255),3)
+                            cv2.rectangle(im0,(l+int((r-l)*0.8),t),(r,b),(0.10,255),3)
+                            
                             bat1=[l,t,r, b-int((b-t)*0.7)]  #up
 
                             bat2=[l,t+int((b-t)*0.3),r,b-int((b-t)*0.3)] #mid
@@ -329,15 +346,14 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                 
                             ball=[l,t,r,b] 
                             
-                            if(prev>xywh[1]):
+                            if(prev>xywh[1] and check>10):
                                 # print(xywh[1])
+                                check=0
                                 
-                                # hi,wi=im0.shape[0] ,im0.shape[1]
-                                # xywh
-                                l = int((float(xywh[0]) - float(xywh[2]) / 2) * wi)
-                                r = int((float(xywh[0]) + float(xywh[2]) / 2) * wi)
-                                t = int((float(xywh[1]) - float(xywh[3]) / 2) *hi)
-                                b = int((float(xywh[1]) + float(xywh[3]) / 2) * hi)
+                                l = int((float(impact[0]) - float(impact[2]) / 2) * wi)
+                                r = int((float(impact[0]) + float(impact[2]) / 2) * wi)
+                                t = int((float(impact[1]) - float(impact[3]) / 2) *hi)
+                                b = int((float(impact[1]) + float(impact[3]) / 2) * hi)
                                 
                                 if l < 0:
                                     l = 0
@@ -350,12 +366,16 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                 
                                 pre=[l,t,r,b]
                                 
-                                # cx,cy=int(float(xywh[0])*w) , int(float(xywh[1])*h) 
-                                cx,cy=int(float(prev0)*wi) , int(float(prev)*hi) 
-                              
-
-
-                                if(get_iou(pre,york)>0.0):
+                                cx,cy=int(float(impact[0])*wi) , int(float(impact[1])*hi) 
+                                # cx,cy=int(float(prev0)*wi) , int(float(prev)*hi) 
+                                yor=get_iou(pre,york)
+                                full=get_iou(pre,ful)
+                                gg=get_iou(pre,good)
+                                sh=get_iou(pre,short)
+                                
+                                max_of_4=maxi_pitch(yor,full,gg,sh)
+                                
+                                if(max_of_4==yor and max_of_4>0.0):
                                     cv2.putText(im0,"yorker",(890,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
                                     cv2.circle(im0,(cx,cy),15,(255,56,0),cv2.FILLED) 
                                     with open('/content/mycsv.csv','a',newline='') as cfile:
@@ -363,21 +383,21 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                         thewriter.writerow([str(cnt),"yorker"])
                                     cnt=cnt+1
                                 #yorker
-                                elif(get_iou(pre,ful)>0.0):
+                                elif(max_of_4==full and max_of_4>0.0):
                                     cv2.putText(im0,"full",(890,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
                                     cv2.circle(im0,(cx,cy),15,(255,56,0),cv2.FILLED) 
                                     with open('/content/mycsv.csv','a',newline='') as cfile:
                                         thewriter=csv.writer(cfile)
                                         thewriter.writerow([str(cnt),"full"])
                                     cnt=cnt+1
-                                elif(get_iou(pre,good)>0.0):
+                                elif(max_of_4==gg and max_of_4>0.0):
                                     cv2.putText(im0,"good",(890,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
                                     cv2.circle(im0,(cx,cy),15,(255,56,0),cv2.FILLED) 
                                     with open('/content/mycsv.csv','a',newline='') as cfile:
                                         thewriter=csv.writer(cfile)
                                         thewriter.writerow([str(cnt),"good"])
                                     cnt=cnt+1
-                                elif(get_iou(pre,short)>0.0):
+                                elif(max_of_4==sh and max_of_4>0.0):
                                     cv2.putText(im0,"short",(890,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
                                     cv2.circle(im0,(cx,cy),15,(255,56,0),cv2.FILLED) 
                                     with open('/content/mycsv.csv','a',newline='') as cfile:
@@ -390,45 +410,56 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                 prev=0
                                 # pre=xywh
                                 flag=1
-                                break
+                                # break
                             if flag==0:    
                                 # pre=xywh
+                                impact=xywh
                                 prev=xywh[1] 
                                 prev0=xywh[0]
+                                check+=1
                         
-                        if(classball==1 and classbat==1):
+                        if(classball==1 and classbat==1 and gap>10):
+                            gap=0
                             upbat= get_iou(bat1,ball)
                             midbat=get_iou(bat2,ball)
                             lowbat=get_iou(bat3,ball)
-                            print("both")
+                            # print("both")
                             largest=maxx(upbat,midbat,lowbat)
                             print(largest)
                             if (largest==upbat and largest>0):
-                                with open('/content/hit.csv','a',newline='') as cfile:
-                                        thewriterr=csv.writer(cfile)
-                                        thewriterr.writerow([str(blcnt),"upper"])
-                                
+                                # with open('/content/hit.csv','a',newline='') as cfile:
+                                #         thewriterr=csv.writer(cfile)
+                                #         thewriterr.writerow([str(blcnt),"upper"])
+                                cv2.putText(im0,"upper",(100,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
+                                df.loc[len(df.index)] =[blcnt, 'upper' ] 
                                 # df.loc[df.index.max()+1] = [blcnt, 'upper' ] 
                                 blcnt=blcnt+1
                                 # print("upper")
                             elif (largest==midbat and largest>0):      
-                                with open('/content/hit.csv','a',newline='') as cfile:
-                                        thewriterr=csv.writer(cfile)
-                                        thewriterr.writerow([str(blcnt),"mid"])
-                                       
+                                # with open('/content/hit.csv','a',newline='') as cfile:
+                                #         thewriterr=csv.writer(cfile)
+                                #         thewriterr.writerow([str(blcnt),"mid"])
+                                 
+                                df.loc[len(df.index)]  =[blcnt, 'mid' ]      
+                                cv2.putText(im0,"mid",(100,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
+                             
                                 # df.loc[df.index.max()+1] = [blcnt, 'mid' ] 
                                 blcnt=blcnt+1
                                 # print("mid")
                             if (largest==lowbat and largest>0): 
-                                with open('/content/hit.csv','a',newline='') as cfile:
-                                        thewriterr=csv.writer(cfile)
-                                        thewriterr.writerow([str(blcnt),"lower"])
+                                # with open('/content/hit.csv','a',newline='') as cfile:
+                                #         thewriterr=csv.writer(cfile)
+                                #         thewriterr.writerow([str(blcnt),"lower"])
                                        
-                                # df.loc[df.index.max()+1] = [blcnt, 'lower' ] 
+                                # df.loc[df.index.max()+1] = [blcnt, 'lower' ]
+                                df.loc[len(df.index)] = [blcnt, 'lower']  
+                                cv2.putText(im0,"lower",(100,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
                                 # print("low")
                                 blcnt=blcnt+1
-                            
-                        # df.to_csv('/content/hit.csv',index=False) 
+                        # df.loc[df.index.max()+1] = [blcnt, 'another' ] 
+                        else:
+                            gap+=1
+                        df.to_csv('/content/hit.csv',index=False) 
                         
                                
                         label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
