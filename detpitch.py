@@ -23,6 +23,8 @@ Usage - formats:
                                          yolov5s.tflite             # TensorFlow Lite
                                          yolov5s_edgetpu.tflite     # TensorFlow Edge TPU
 """
+import pandas as pd
+import json
 
 
 import argparse
@@ -48,10 +50,26 @@ from utils.general import (LOGGER, check_file, check_img_size, check_imshow, che
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, time_sync
 
-
-
 @torch.no_grad()
 
+def maxx(x,y,z):
+  if (x>y) and (x>z):
+      return x
+  elif (y>x) and (y>z):
+      return y
+  elif (z>x) and (z>y):
+      return z
+  
+def maxi_pitch(a,b,c,d):
+    if(a>b) and (a>c) and (a>d):
+        return a
+    elif (b>a) and (b>c) and (b>d):
+        return b
+    elif (c>a)and (c>b) and (c>d):
+        return c
+    elif (d>a) and (d>b) and (d>c):
+        return d  
+   
 def get_iou(boxA, boxB):
     	# determine the (x, y)-coordinates of the intersection rectangle
 	xA = max(boxA[0], boxB[0])
@@ -68,6 +86,32 @@ def get_iou(boxA, boxB):
 	iou = interArea / float(boxAArea + boxBArea - interArea)
 	# return the intersection over union value
 	return iou
+
+def write_json(new_data, filename='/content/bat.json'):
+    with open(filename,'r+') as file:
+        # First we load existing data into a dict.
+        file_data = json.load(file)
+        # Join new_data with file_data inside 
+        # file_data.append(new_data)
+        file_data.update(new_data)
+        # Sets file's current position at offset.
+        file.seek(0)
+        # convert back to json.
+        json.dump(file_data, file)
+        # json.dump(file_data, file, indent = 4)
+
+def write_pitch_json(new_data, filename='/content/pitch.json'):
+    with open(filename,'r+') as file:
+        # First we load existing data into a dict.
+        file_data = json.load(file)
+        # Join new_data with file_data inside 
+        # file_data.append(new_data)
+        file_data.update(new_data)
+        # Sets file's current position at offset.
+        file.seek(0)
+        # convert back to json.
+        json.dump(file_data, file)
+        # json.dump(file_data, file, indent = 4)
 
 def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         source=ROOT / 'data/images',  # file/dir/URL/glob, 0 for webcam
@@ -135,12 +179,29 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     
     prev=0
     prev0=0
+    check=0
+    gap=0
     
+    # with open('/content/mycsv.csv','w',newline='') as cfile:
+    #      thewriter=csv.writer(cfile)
+    #      thewriter.writerow(['ballcount','pitch'])
+         
+    blcnt=1  
+
+    # df= pd.DataFrame(columns=['ball count', 'hit/miss'])     
+    # df.loc[df.index.max()+1] = [blcnt, 'lower' ] 
+      
+
+    with open('/content/bat.json', 'w') as json_file:
+        json.dump({'ball':'hit region'}, json_file) 
+     
     
-    with open('/content/mycsv.csv','w',newline='') as cfile:
-         thewriter=csv.writer(cfile)
-         thewriter.writerow(['ballcount','pitch'])
-    cnt=0   
+    with open('/content/pitch.json', 'w') as json_file:
+        json.dump({'ball':'pitch'}, json_file) 
+
+ 
+        
+    cnt=1   
     model.warmup(imgsz=(1, 3, *imgsz), half=half)  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
     
@@ -223,6 +284,9 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                     x,y,w,h = cv2.boundingRect(c)
                     idx=1
                     cv2.rectangle(im0, (x, y), (x + w, y + h), (0, 255,0), 2)
+                    cv2.rectangle(im0, (x+int(w/2)-30, y), (x+int(w/2)+30 , y +h), (0, 255,255), -1)
+
+                    # cv2.rectangle(im0, (x, y), (x + w, y + h), (0, 255,0), 2)
                     
                     cv2.rectangle(im0, (x, y), (x + w, y + int(h*0.1)), (255, 255,0), 2)#yorker
                     york=[x,y,x+w,y + int(h*0.1)]
@@ -236,7 +300,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                     cv2.rectangle(im0, (x, y + int(h*0.4)), (x + w, y + int(h*0.5)), (255, 255,0), 2)#short
                     short =[x,y + int(h*0.4),x+w,y + int(h*0.5)]
                 
-                
+                classbat=0
+                classball=0
                 for *xyxy, conf, cls in reversed(det):
                     xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()
                     #xywh is storing labels as list [0-3] 
@@ -250,21 +315,79 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                     # cnt=cnt+1
                     
                     flag=0
-                    print(type(cls))
+                    # classbat=0
+                    # classball=0
+                
                     if save_img or save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
+                        hi,wi=im0.shape[0] ,im0.shape[1]
                         # if cls==1:
-                        if c==1:
+                        if c==0:
+                            classbat=1
                             
-                            if(prev>xywh[1]):
-                                # print(xywh[1])
+                            l = int((float(xywh[0]) - float(xywh[2]) / 2) * wi)
+                            r = int((float(xywh[0]) + float(xywh[2]) / 2) * wi)
+                            t = int((float(xywh[1]) - float(xywh[3]) / 2) *hi)
+                            b = int((float(xywh[1]) + float(xywh[3]) / 2) * hi)
+                            
+                            if l < 0:
+                                l = 0
+                            if r > wi - 1:
+                                r = wi - 1
+                            if t < 0:
+                                t = 0
+                            if b > hi - 1:
+                                b = hi - 1
+                            
+                            # cv2.rectangle(im0, (l, t), (r, b), (0, 0, 255), 1)
+                            # a = Bbox([l,t,r,b])
+
+                            b1=[l,t,r,b]  
+
+                            cv2.rectangle(im0,(l,t),(r,b-int((b-t)*0.7)),(0.10,255),2)#upper
+                        
+                            cv2.rectangle(im0,(l,t+int((b-t)*0.3)),(r,b-int((b-t)*0.3)),(0.10,255),2) #mid
+                            cv2.rectangle(im0,(l,t+int((b-t)*0.7)),(r,b),(0.10,255),2)  # lower
+                        
+                            
+                             # # r-l - width of the box 
+                            cv2.rectangle(im0,(l,t),(r-int((r-l)*0.8),b),(0.10,255),3) 
+                            cv2.rectangle(im0,(l+int((r-l)*0.2),t),(r-int((r-l)*0.2),b),(0.10,255),3)
+                            cv2.rectangle(im0,(l+int((r-l)*0.8),t),(r,b),(0.10,255),3)
+                            
+                            bat1=[l,t,r, b-int((b-t)*0.7)]  #up
+
+                            bat2=[l,t+int((b-t)*0.3),r,b-int((b-t)*0.3)] #mid
+                            
+                            bat3=[l,t+int((b-t)*0.7),r,b]  #low    
+                            
+                        if c==1:
+                            classball=1
+                        
+                            l = int((float(xywh[0]) - float(xywh[2]) / 2) * wi)
+                            r = int((float(xywh[0]) + float(xywh[2]) / 2) * wi)
+                            t = int((float(xywh[1]) - float(xywh[3]) / 2) *hi)
+                            b = int((float(xywh[1]) + float(xywh[3]) / 2) * hi)
+                             
+                            if l < 0:
+                                l = 0
+                            if r > wi - 1:
+                                r = wi - 1
+                            if t < 0:
+                                t = 0
+                            if b > hi - 1:
+                                b = hi - 1
                                 
-                                hi,wi=im0.shape[0] ,im0.shape[1]
-                                # xywh
-                                l = int((float(xywh[0]) - float(xywh[2]) / 2) * wi)
-                                r = int((float(xywh[0]) + float(xywh[2]) / 2) * wi)
-                                t = int((float(xywh[1]) - float(xywh[3]) / 2) *hi)
-                                b = int((float(xywh[1]) + float(xywh[3]) / 2) * hi)
+                            ball=[l,t,r,b] 
+                            
+                            if(prev>xywh[1] and check>10):
+                                # print(xywh[1])
+                                check=0
+                                
+                                l = int((float(impact[0]) - float(impact[2]) / 2) * wi)
+                                r = int((float(impact[0]) + float(impact[2]) / 2) * wi)
+                                t = int((float(impact[1]) - float(impact[3]) / 2) *hi)
+                                b = int((float(impact[1]) + float(impact[3]) / 2) * hi)
                                 
                                 if l < 0:
                                     l = 0
@@ -277,52 +400,105 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                 
                                 pre=[l,t,r,b]
                                 
-                                # cx,cy=int(float(xywh[0])*w) , int(float(xywh[1])*h) 
-                                cx,cy=int(float(prev0)*wi) , int(float(prev)*hi) 
-                              
-
-
-                                if(get_iou(pre,york)>0.0):
+                                cx,cy=int(float(impact[0])*wi) , int(float(impact[1])*hi) 
+                                # cx,cy=int(float(prev0)*wi) , int(float(prev)*hi) 
+                                yor=get_iou(pre,york)
+                                full=get_iou(pre,ful)
+                                gg=get_iou(pre,good)
+                                sh=get_iou(pre,short)
+                                
+                                max_of_4=maxi_pitch(yor,full,gg,sh)
+                                
+                                if(max_of_4==yor and max_of_4>0.0):
                                     cv2.putText(im0,"yorker",(890,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
                                     cv2.circle(im0,(cx,cy),15,(255,56,0),cv2.FILLED) 
-                                    with open('/content/mycsv.csv','a',newline='') as cfile:
-                                        thewriter=csv.writer(cfile)
-                                        thewriter.writerow([str(cnt),"yorker"])
+                                    # with open('/content/mycsv.csv','a',newline='') as cfile:
+                                    #     thewriter=csv.writer(cfile)
+                                    #     thewriter.writerow([str(cnt),"yorker"])
+                                    
+                                    pitchh={cnt:"yorker"}
+                                    write_pitch_json(pitchh)
                                     cnt=cnt+1
                                 #yorker
-                                elif(get_iou(pre,ful)>0.0):
+                                elif(max_of_4==full and max_of_4>0.0):
                                     cv2.putText(im0,"full",(890,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
                                     cv2.circle(im0,(cx,cy),15,(255,56,0),cv2.FILLED) 
-                                    with open('/content/mycsv.csv','a',newline='') as cfile:
-                                        thewriter=csv.writer(cfile)
-                                        thewriter.writerow([str(cnt),"full"])
+                                    # with open('/content/mycsv.csv','a',newline='') as cfile:
+                                    #     thewriter=csv.writer(cfile)
+                                    #     thewriter.writerow([str(cnt),"full"])
+                                    pitchh={cnt:"full"}
+                                    write_pitch_json(pitchh)
                                     cnt=cnt+1
-                                elif(get_iou(pre,good)>0.0):
+                                elif(max_of_4==gg and max_of_4>0.0):
                                     cv2.putText(im0,"good",(890,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
                                     cv2.circle(im0,(cx,cy),15,(255,56,0),cv2.FILLED) 
-                                    with open('/content/mycsv.csv','a',newline='') as cfile:
-                                        thewriter=csv.writer(cfile)
-                                        thewriter.writerow([str(cnt),"good"])
+                                    # with open('/content/mycsv.csv','a',newline='') as cfile:
+                                    #     thewriter=csv.writer(cfile)
+                                    #     thewriter.writerow([str(cnt),"good"])
+                                    pitchh={cnt:"good"}
+                                    write_pitch_json(pitchh)
                                     cnt=cnt+1
-                                elif(get_iou(pre,short)>0.0):
+                                elif(max_of_4==sh and max_of_4>0.0):
                                     cv2.putText(im0,"short",(890,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
                                     cv2.circle(im0,(cx,cy),15,(255,56,0),cv2.FILLED) 
-                                    with open('/content/mycsv.csv','a',newline='') as cfile:
-                                        thewriter=csv.writer(cfile)
-                                        thewriter.writerow([str(cnt),"short"])
-                                    
+                                    # with open('/content/mycsv.csv','a',newline='') as cfile:
+                                    #     thewriter=csv.writer(cfile)
+                                    #     thewriter.writerow([str(cnt),"short"])
+                                    pitchh={cnt:"short"}
+                                    write_pitch_json(pitchh)
                                     cnt=cnt+1
                                 
                                 
                                 prev=0
-                                # pre=xywh.
+                                # pre=xywh
                                 flag=1
-                                break
+                                # break
                             if flag==0:    
                                 # pre=xywh
+                                impact=xywh
                                 prev=xywh[1] 
                                 prev0=xywh[0]
+                                check+=1
+                        
+                        if(classball==1 and classbat==1 and gap>10):
+                            gap=0
+                            upbat= get_iou(bat1,ball)
+                            midbat=get_iou(bat2,ball)
+                            lowbat=get_iou(bat3,ball)
+                            # print("both")
+                            largest=maxx(upbat,midbat,lowbat)
+                            print(largest)
+                            if (largest==upbat and largest>0):
                                 
+                                cv2.putText(im0,"upper",(100,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
+                                # df.loc[len(df.index)] =[blcnt, 'upper' ] 
+                                collide={blcnt: 'upper'}
+                                write_json(collide)
+                                blcnt=blcnt+1
+                                # print("upper")
+                            elif (largest==midbat and largest>0):      
+                                
+                                # df.loc[len(df.index)]  =[blcnt, 'mid' ]      
+                                cv2.putText(im0,"mid",(100,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
+                                collide={blcnt:'mid'}
+                                write_json(collide)
+                                blcnt=blcnt+1
+                                # print("mid")
+                            if (largest==lowbat and largest>0): 
+                                
+                                       
+                                # df.loc[len(df.index)] = [blcnt, 'lower']  
+                                cv2.putText(im0,"lower",(100,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
+                                # print("low")
+                                collide={blcnt: 'lower'}
+                                write_json(collide)
+                                blcnt=blcnt+1
+                        # df.loc[df.index.max()+1] = [blcnt, 'another' ] 
+                        else:
+                            gap+=1
+                        # df.to_csv('/content/hit.csv',index=False) 
+                        
+                               
                         label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
                         annotator.box_label(xyxy, label, color=colors(c, True))
                         if save_crop:
