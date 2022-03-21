@@ -418,6 +418,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                     
                                     pitchh={cnt:"yorker"}
                                     write_pitch_json(pitchh)
+                                    write_pitch_json({cnt:{"ball_pitch":"nil"}})
+                                    write_pitch_json({cnt:{"bowler_tupe":"nil"}})
                                     cnt=cnt+1
                                 #yorker
                                 elif(max_of_4==full and max_of_4>0.0):
@@ -428,6 +430,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                     #     thewriter.writerow([str(cnt),"full"])
                                     pitchh={cnt:"full"}
                                     write_pitch_json(pitchh)
+                                    write_pitch_json({cnt:{"ball_pitch":"nil"}})
+                                    write_pitch_json({cnt:{"bowler_tupe":"nil"}})
                                     cnt=cnt+1
                                 elif(max_of_4==gg and max_of_4>0.0):
                                     cv2.putText(im0,"good",(890,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
@@ -436,6 +440,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                     #     thewriter=csv.writer(cfile)
                                     #     thewriter.writerow([str(cnt),"good"])
                                     pitchh={cnt:"good"}
+                                    write_pitch_json({cnt:{"ball_pitch":"nil"}})
+                                    write_pitch_json({cnt:{"bowler_tupe":"nil"}})
                                     write_pitch_json(pitchh)
                                     cnt=cnt+1
                                 elif(max_of_4==sh and max_of_4>0.0):
@@ -446,7 +452,11 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                     #     thewriter.writerow([str(cnt),"short"])
                                     pitchh={cnt:"short"}
                                     write_pitch_json(pitchh)
+                                    write_pitch_json({cnt:{"ball_pitch":"nil"}})
+                                    write_pitch_json({cnt:{"bowler_tupe":"nil"}})
                                     cnt=cnt+1
+                                
+                                
                                 
                                 
                                 prev=0
@@ -474,6 +484,12 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                 # df.loc[len(df.index)] =[blcnt, 'upper' ] 
                                 collide={blcnt: 'upper'}
                                 write_json(collide)
+                                write_json({blcnt:{"batsman_type":"nil"}})
+                                write_json({blcnt:{"shot_played":"nil"}})
+                                write_json({blcnt:{"ball_touched_bat":"nil"}})
+                                write_json({blcnt:{"ball_hit_area":"nil"}})
+                                write_json({blcnt:{"timestamp":"nil"}})
+                                
                                 blcnt=blcnt+1
                                 # print("upper")
                             elif (largest==midbat and largest>0):      
@@ -482,6 +498,11 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                 cv2.putText(im0,"mid",(100,100),cv2.FONT_HERSHEY_PLAIN,5,(0,10,255),6)
                                 collide={blcnt:'mid'}
                                 write_json(collide)
+                                write_json({blcnt:{"batsman_type":"nil"}})
+                                write_json({blcnt:{"shot_played":"nil"}})
+                                write_json({blcnt:{"ball_touched_bat":"nil"}})
+                                write_json({blcnt:{"ball_hit_area":"nil"}})
+                                write_json({blcnt:{"timestamp":"nil"}})
                                 blcnt=blcnt+1
                                 # print("mid")
                             if (largest==lowbat and largest>0): 
@@ -492,6 +513,12 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                 # print("low")
                                 collide={blcnt: 'lower'}
                                 write_json(collide)
+                                write_json({blcnt:{"batsman_type":"nil"}})
+                                write_json({blcnt:{"shot_played":"nil"}})
+                                write_json({blcnt:{"ball_touched_bat":"nil"}})
+                                write_json({blcnt:{"ball_hit_area":"nil"}})
+                                write_json({blcnt:{"timestamp":"nil"}})
+                                
                                 blcnt=blcnt+1
                         # df.loc[df.index.max()+1] = [blcnt, 'another' ] 
                         else:
